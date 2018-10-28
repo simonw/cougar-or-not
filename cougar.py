@@ -7,6 +7,7 @@ from fastai.vision import (
     get_transforms,
     models,
 )
+import torch
 from pathlib import Path
 from io import BytesIO
 import sys
@@ -38,6 +39,9 @@ cat_data = ImageDataBunch.from_name_re(
     size=224,
 )
 cat_learner = ConvLearner(cat_data, models.resnet34)
+cat_learner.model.load_state_dict(
+    torch.load("usa-inaturalist-cats.pth", map_location="cpu")
+)
 
 
 @app.route("/upload", methods=["POST"])
