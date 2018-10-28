@@ -50,8 +50,13 @@ async def homepage(request):
     bytes = await (data["file"].read())
     img = open_image(BytesIO(bytes))
     losses = img.predict(cat_learner)
-    prediction = cat_learner.data.classes[losses.argmax()]
-    return JSONResponse({"prediction": prediction})
+    return JSONResponse({
+        "predictions": sorted(
+            zip(cat_learner.data.classes, map(float, losses)),
+            key=lambda p: p[1],
+            reverse=True
+        )
+    })
 
 
 @app.route("/form")
