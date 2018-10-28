@@ -1,5 +1,5 @@
 from starlette.applications import Starlette
-from starlette.responses import JSONResponse, HTMLResponse
+from starlette.responses import JSONResponse, HTMLResponse, RedirectResponse
 from fastai.vision import (
     ImageDataBunch,
     ConvLearner,
@@ -12,6 +12,15 @@ from pathlib import Path
 from io import BytesIO
 import sys
 import uvicorn
+import aiohttp
+import asyncio
+
+
+async def get_bytes(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            return await response.read()
+
 
 app = Starlette()
 
@@ -45,9 +54,19 @@ cat_learner.model.load_state_dict(
 
 
 @app.route("/upload", methods=["POST"])
-async def homepage(request):
+async def upload(request):
     data = await request.form()
     bytes = await (data["file"].read())
+    return predict_image_from_bytes(bytes)
+
+
+@app.route("/classify-url", methods=["GET"])
+async def classify_url(request):
+    bytes = await get_bytes(request.query_params["url"])
+    return predict_image_from_bytes(bytes)
+
+
+def predict_image_from_bytes(bytes):
     img = open_image(BytesIO(bytes))
     losses = img.predict(cat_learner)
     return JSONResponse({
@@ -59,17 +78,26 @@ async def homepage(request):
     })
 
 
-@app.route("/form")
+@app.route("/")
 def form(request):
     return HTMLResponse(
         """
-    <form action="/upload" method="post" enctype="multipart/form-data">
-    Select image to upload:
-    <input type="file" name="file">
-    <input type="submit" value="Upload Image">
-    </form>
-    """
-    )
+        <form action="/upload" method="post" enctype="multipart/form-data">
+            Select image to upload:
+            <input type="file" name="file">
+            <input type="submit" value="Upload Image">
+        </form>
+        Or submit a URL:
+        <form action="/classify-url" method="get">
+            <input type="url" name="url">
+            <input type="submit" value="Fetch and analyze image">
+        </form>
+    """)
+
+
+@app.route("/form")
+def redirect_to_homepage(request):
+    return RedirectResponse("/")
 
 
 if __name__ == "__main__":
